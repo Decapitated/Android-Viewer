@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Client_Chat</string>
+    <string name="connect">Connect</string>
+    <string name="type_message_exit_to_exit">Type message... (Exit to exit)</string>
+    <string name="send_image">Send Image</string>
+    <string name="todo">TODO</string>
+    <string name="ok_button">OK</string>
+    <string name="screenshot">Screenshot</string>
+    <string name="fuck_off">fuck off</string>
+</resources>
