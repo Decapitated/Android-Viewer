@@ -5,7 +5,7 @@ apply plugin: 'kotlin-android'
 android {
     compileSdkVersion 27
     defaultConfig {
-        applicationId "dev.decapitated.client_chat"
+        applicationId "dev.decapitated.android_client"
         minSdkVersion 27
         targetSdkVersion 27
         versionCode 1
