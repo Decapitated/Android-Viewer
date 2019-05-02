@@ -1,4 +1,4 @@
-package dev.decapitated.client_chat;
+package dev.decapitated.android_client;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

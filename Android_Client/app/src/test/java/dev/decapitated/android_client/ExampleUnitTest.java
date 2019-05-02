@@ -1,4 +1,4 @@
-package dev.decapitated.client_chat;
+package dev.decapitated.android_client;
 
 import org.junit.Test;
 
