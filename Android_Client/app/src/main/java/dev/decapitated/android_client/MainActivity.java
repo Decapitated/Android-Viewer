@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
                     });
                     socket.on(Socket.EVENT_DISCONNECT, args -> {
                         feed.append("Server Closed.\n");
-                        socket.close();
+                        socket.disconnect();
                         connected = false;
                         sharing = false;
                         setElementVisibility(connect,true);
@@ -111,36 +111,11 @@ public class MainActivity extends AppCompatActivity {
         sendImage.setOnClickListener((event) -> {
             sharing = !sharing;
             if(sharing) {
-                cappedHandle = scheduler.scheduleAtFixedRate(() -> {
-                    if(sharing) {
-                        Image image = imageReader.acquireLatestImage();
-
-                        if (image != null) {
-                            final Image.Plane[] planes = image.getPlanes();
-                            int pixelStride = planes[0].getPixelStride();
-                            int rowStride = planes[0].getRowStride();
-                            int rowPadding = rowStride - pixelStride * image.getWidth();
-
-                            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                            Bitmap bitmap = Bitmap.createBitmap(image.getWidth() + rowPadding / pixelStride, image.getHeight(), Bitmap.Config.ARGB_8888);
-                            bitmap.copyPixelsFromBuffer(buffer);
-
-                            byte[] byteArray;
-                            if (bitmap != null) {
-                                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 50, byteArrayOutputStream);
-                                byteArray = byteArrayOutputStream.toByteArray();
-                                String encoded = Base64.encodeToString(byteArray, Base64.DEFAULT);
-                                socket.emit("frame", encoded);
-                            }
-                            image.close();
-                        }
-                    }else{
-                        this.cappedHandle.cancel(true);
-                    }
-                },0,1000/60, TimeUnit.MILLISECONDS);
+                sendThread.start();
             }
         });
+
+
 
         input.setOnEditorActionListener((v, actionId, event) -> {
             if(actionId == EditorInfo.IME_ACTION_SEND){
@@ -158,6 +133,37 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
     }
+
+    Thread sendThread = new Thread(() -> {
+        cappedHandle = scheduler.scheduleAtFixedRate(() -> {
+            if(sharing) {
+                Image image = imageReader.acquireLatestImage();
+
+                if (image != null) {
+                    final Image.Plane[] planes = image.getPlanes();
+                    int pixelStride = planes[0].getPixelStride();
+                    int rowStride = planes[0].getRowStride();
+                    int rowPadding = rowStride - pixelStride * image.getWidth();
+
+                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                    Bitmap bitmap = Bitmap.createBitmap(image.getWidth() + rowPadding / pixelStride, image.getHeight(), Bitmap.Config.ARGB_8888);
+                    bitmap.copyPixelsFromBuffer(buffer);
+
+                    byte[] byteArray;
+                    if (bitmap != null) {
+                        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 50, byteArrayOutputStream);
+                        byteArray = byteArrayOutputStream.toByteArray();
+                        String encoded = Base64.encodeToString(byteArray, Base64.DEFAULT);
+                        socket.emit("frame", encoded);
+                    }
+                    image.close();
+                }
+            }else{
+                this.cappedHandle.cancel(true);
+            }
+        },0,1000/60, TimeUnit.MILLISECONDS);
+    });
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
