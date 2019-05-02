@@ -7,25 +7,23 @@ package dev.headless.learning.chat_io;
 
 import io.socket.client.IO;
 import io.socket.client.Socket;
-import java.awt.BorderLayout;
 import java.awt.Graphics2D;
 import java.awt.Toolkit;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URISyntaxException;
 import java.util.Base64;
 import java.util.Scanner;
 import javax.imageio.ImageIO;
-import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import uk.co.caprica.vlcj.player.component.EmbeddedMediaPlayerComponent;
 
 /**
  *
@@ -35,29 +33,61 @@ public class Client {
     
     private final static String DIR ="src/main/java/dev/headless/learning/chat_io/";
     
-    static Socket socket;
+    private static Process socket_server = null;
+    static Socket socket = null;
     private static boolean connected = false;
     
     private static JFrame frame;
     private static JPanel panel;
-    private static EmbeddedMediaPlayerComponent mediaPlayerComponent;
     
     static boolean frameOpen = false;
+    static boolean adbRunning = false;
+    static boolean deviceConnected = false;
+    
+    
     public static void main(String[] args) {
         try {
+            ProcessBuilder adbPB = new ProcessBuilder(DIR+"include/adb", "start-server");
+            Process adbProc = adbPB.start();
+            
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(adbProc.getErrorStream()));
+            String line = null;
+            while(!adbRunning){
+                line = errorReader.readLine();
+                if(line == null || line.equals("* daemon started successfully")){
+                    adbRunning = true;
+                    System.out.println("ADB Running.");
+                }
+            }
+            adbProc.destroy();
+            
+            adbPB = new ProcessBuilder(DIR+"include/adb", "reverse", "tcp:5555", "tcp:5555");
+            adbProc = adbPB.start();
+            errorReader = new BufferedReader(new InputStreamReader(adbProc.getErrorStream()));
+            System.out.println("Waiting for device...");
+            while(!deviceConnected){
+                line = errorReader.readLine();
+                if(line != null && (line.equals("adb.exe: error: no devices/emulators found") || line.equals("adb.exe: error: device offline"))){
+                    adbProc.destroy();
+                    adbProc = adbPB.start();
+                    errorReader = new BufferedReader(new InputStreamReader(adbProc.getErrorStream()));
+                }else{
+                    deviceConnected = true;
+                    System.out.println("Device Connected.");
+                }
+            }
+            adbProc.destroy();
+            
             //Start the Node Socket.IO Server
             ProcessBuilder serverPB = new ProcessBuilder("node", DIR+"include/server.js");
             serverPB.inheritIO();
-            Process socket_server = serverPB.start();
+            socket_server = serverPB.start(); 
             
-            //Reverse Android Port
-            ProcessBuilder adbPB = new ProcessBuilder(DIR+"include/adb", "reverse", "tcp:5555", "tcp:5555");
-            adbPB.inheritIO();
-            Process adbProc = adbPB.start();
-            
+            //Run at shutdown
             Runtime.getRuntime().addShutdownHook(new Thread(()->{
-                socket_server.destroy();
-                adbProc.destroy();
+                System.out.println("Closing...");
+                if(socket != null){ socket.close(); }
+                if(socket_server != null){ socket_server.destroy(); }
                 ProcessBuilder killAdb = new ProcessBuilder(DIR+"include/adb", "kill-server");
                 try {
                     killAdb.start();
